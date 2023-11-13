@@ -33,7 +33,7 @@ epsg5070 <- paste("+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5",
                   "+units=m +no_defs")
 st_crs(beth_short) <- epsg5070
 beth_short2 <- st_transform(beth_short, crs=latlong)
-states = st_as_sf(map("state",plot=FALSE, fill=TRUE))
+states = st_as_sf(maps::map("state",plot=FALSE, fill=TRUE))
 states = st_transform(states, crs = latlong)
 
 #states is not valid
@@ -43,19 +43,28 @@ states = st_make_valid(states)
 beth_short2 = st_join(beth_short2,states)
 
 #read in raster files
-rast_ssp2_2100 <- read_stars("preds_ssp2_2100.tif")
-rast_ssp5_2100 <- read_stars("preds_ssp5_2100.tif")
-rast_current <- read_stars("preds_2020.tif")
+beth_rast_ssp2_2100 <- rast("preds_ssp2_2100.tif")
+beth_rast_ssp5_2100 <- rast("preds_ssp5_2100.tif")
+beth_rast_current <- rast("preds_2020.tif")
 
-#buow_current <- read_stars("buow_preds_2020.tif")
-#buow_ssp2_2100 <- read_stars("buow_preds_ssp2_2100.tif")
+buow_current <- rast("buow_preds_2021.tif")
+buow_ssp2_2100 <- rast("buow_preds_ssp2_2100.tif")
 
-rasters_to_plot <- list(SSP2 = rast_ssp2_2100,SSP5 = rast_ssp5_2100,
-                        current = rast_current)
-rasters_to_plot[[4]] <- rasters_to_plot$SSP2-rasters_to_plot$current
-names(rasters_to_plot)[4] <- "Diff_SSP2"
-rasters_to_plot[[5]] <- rasters_to_plot$SSP5-rasters_to_plot$current
-names(rasters_to_plot)[5] <- "Diff_SSP5"
+lewo_current <- rast("lewo_test_25kmesh_500kmatern.tif")
+lewo_ssp2_2100 <- rast("lewo_preds_ssp2_2100.tif")
+
+beth_brick <- c(beth_rast_current, beth_rast_ssp2_2100,diff = beth_rast_ssp2_2100-beth_rast_current)
+buow_brick <- c(buow_current, buow_ssp2_2100,diff = buow_current-buow_ssp2_2100)
+lewo_brick <- c(lewo_current, lewo_ssp2_2100,diff = lewo_current-lewo_ssp2_2100)
+
+rasters_to_plot <- list(beth = beth_brick,
+                        buow = buow_brick,
+                        lewo = lewo_brick)
+
+#rasters_to_plot[[4]] <- rasters_to_plot$SSP2-rasters_to_plot$current
+#names(rasters_to_plot)[4] <- "Diff_SSP2"
+#rasters_to_plot[[5]] <- rasters_to_plot$SSP5-rasters_to_plot$current
+#names(rasters_to_plot)[5] <- "Diff_SSP5"
 
 # Define UI for application that plots prediction rasters
 
@@ -67,15 +76,18 @@ ui <- fluidPage(
 
     fluidRow(  
        column(4,selectInput(inputId = "ssp", label = "SSP:",
-                     choices = c("SSP2"= 1,
-                                 "SSP5"= 2,
-                                 "Current (2021)" = 3,
-                                 "Difference of current and SSP2" = 4,
-                                 "Difference of current and SSP5" = 5))
+                     choices = c("Current (2021)" = 1,
+                                 "SSP2" = 2,
+                                 "Difference of current and SSP2" = 3
+                                 #"Difference of current and SSP5" = 5
+                                 )
+                     )
          )),
-       #column(4,selectInput(inputId = "species", label = "Species",
-      #                      choices = c("Bendire's Thrasher"=1,
-      #                                  "Burrowing Owl" = 2)))),
+    fluidRow(   
+      column(12,selectInput(inputId = "species", label = "Species",
+                            choices = c("Bendire's Thrasher"= 1,
+                                        "Burrowing Owl" = 2,
+                                        "Lewis's Woodpecker" = 3)))),
          
         # Show a plot of the generated distribution
       fluidRow(
@@ -121,25 +133,38 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   #tab 1
    
-  plot_raster <- reactive({
+  #plot_raster <- reactive({
     #req(input$ssp)
-    rast(rasters_to_plot[[as.integer(input$ssp)]])
-    })
+    #rast(rasters_to_plot[[as.integer(input$ssp)]])
+    #rast(rasters_to_plot[[input$ssp]])
+   # rasters_to_plot[[input$species]][[input$ssp]]
+   # })
   
   #cols_plot <- colorNumeric(viridis(9, alpha=.8, option = "D"),
   #                          values(plot_raster()), na.color = "transparent")
   
   output$ssp_plot <- renderLeaflet({
-      # generate plot based on input$ssp from ui.R
+  # generate plot based on input$ssp from ui.R
 
-    leaflet() %>% addTiles() %>% addRasterImage(plot_raster(),
-                                                colors = colorNumeric(scico(9, alpha=.8, palette = ifelse(as.numeric(input$ssp)== 5| as.numeric(input$ssp)== 4,"broc", "tokyo")),
-                                                                      values(plot_raster()), na.color = "transparent"),
-                                                opacity = 0.8) %>%
-      addLegend(pal = colorNumeric(scico(9, alpha=.8, palette = ifelse(as.numeric(input$ssp)== 5| as.numeric(input$ssp)== 4,"broc", "tokyo")),
-                                   values(plot_raster()), na.color = "transparent"), 
-                values = values(plot_raster()),
-                title = paste0(names(rasters_to_plot[as.integer(input$ssp)])," Pred Occ"))
+    leaflet() %>% 
+      addTiles() %>% 
+      addRasterImage(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$ssp)]],
+          colors = colorNumeric(
+            scico(9,
+                  alpha=.8,
+                  palette = ifelse(input$ssp == 3,"broc", "tokyo")),
+            values(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$ssp)]]), 
+            na.color = "transparent"),
+            opacity = 0.8) %>%
+      addLegend(
+        pal = colorNumeric(
+        scico(
+          9, 
+          alpha=.8, 
+          palette = ifelse(input$ssp== 3,"broc", "tokyo")),
+        values(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$ssp)]]), na.color = "transparent"), 
+        values = values(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$ssp)]]),
+                title = paste0(names(rasters_to_plot[input$ssp])," Pred Occ"))
   })
   
   #switch raster for SSP2, SSP5, Difference, or Current
@@ -162,7 +187,7 @@ server <- function(input, output, session) {
       paste0("output_preds_",input$ssp,"2100.tif")
     },
     content = function(file) {
-      writeRaster(plot_raster(), file)
+      writeRaster(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$ssp)]], file)
     }
   )
   
