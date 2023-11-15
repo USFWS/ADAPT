@@ -23,28 +23,29 @@ library(lwgeom)
 #write.csv(beth_short,"beth_short.csv")
 
 beth_short <- read.csv("beth_short.csv")
-#beth_clim_dat <- read.csv("BETH_clim_dat.csv")[,-1]
-#beth_short$ahm <- beth_clim_dat$AHM.ssp245.2001.2020[104000:105000]
-#beth_short$lulc <- beth_lulc$l.245.20[1:1001]
-beth_short <- st_as_sf(beth_short,coords = c("POINT_X","POINT_Y"))
-latlong <- "+proj=longlat +datum=WGS84"
-epsg5070 <- paste("+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5",
-                  "+lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83", 
-                  "+units=m +no_defs")
-st_crs(beth_short) <- epsg5070
-beth_short2 <- st_transform(beth_short, crs=latlong)
-states = st_as_sf(maps::map("state",plot=FALSE, fill=TRUE))
-states = st_transform(states, crs = latlong)
+buow_short <- read.csv("buow_short.csv")
+
+data_transform <- function(dat_short){
+
+  dat_short <- st_as_sf(dat_short,coords = c("POINT_X","POINT_Y"))
+  st_crs(dat_short) <- st_crs("EPSG:5070")
+  dat_short2 <- st_transform(dat_short, crs = st_crs("EPSG:4326"))
+  states = st_as_sf(maps::map("state",plot=FALSE, fill=TRUE))
+  states = st_transform(states, crs = st_crs("EPSG:4326"))
 
 #states is not valid
 #st_is_valid(states)
-sf_use_s2(FALSE)
-states = st_make_valid(states)
-beth_short2 = st_join(beth_short2,states)
+  sf_use_s2(FALSE)
+  states = st_make_valid(states)
+  dat_short2 = st_join(dat_short2,states)
+
+return(dat_short = dat_short2)
+
+}
 
 #read in raster files
 beth_rast_ssp2_2100 <- rast("preds_ssp2_2100.tif")
-beth_rast_ssp5_2100 <- rast("preds_ssp5_2100.tif")
+#beth_rast_ssp5_2100 <- rast("preds_ssp5_2100.tif")
 beth_rast_current <- rast("preds_2020.tif")
 
 buow_current <- rast("buow_preds_2021.tif")
