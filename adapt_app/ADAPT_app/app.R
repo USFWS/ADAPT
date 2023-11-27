@@ -15,25 +15,20 @@ library(scico)
 library(terra)
 library(tidyterra)
 library(lwgeom)
+library(shinyWidgets)
 
-#load data
-#beth_ras_tmp <- read.csv("beth_ras_year2.csv")
-#beth_short <- beth_ras_tmp |> 
-#  filter(!is.na(obs))
-#write.csv(beth_short,"beth_short.csv")
-
-adapt_pts <- st_read("dat_short.shp")
+adapt_pts <- st_read("~/ADAPT/adapt_app/ADAPT_app/dat_short.shp")
 
 #read in raster files
-beth_rast_ssp2_2100 <- rast("preds_ssp2_2100.tif")
+beth_rast_ssp2_2100 <- rast("~/ADAPT/adapt_app/ADAPT_app/beth_ssp2_2100.tif")
 #beth_rast_ssp5_2100 <- rast("preds_ssp5_2100.tif")
-beth_rast_current <- rast("preds_2020.tif")
+beth_rast_current <- rast("~/ADAPT/adapt_app/ADAPT_app/beth_current.tif")
 
-buow_current <- rast("buow_preds_2021.tif")
-buow_ssp2_2100 <- rast("buow_preds_ssp2_2100.tif")
+buow_current <- rast("~/ADAPT/adapt_app/ADAPT_app/buow_current.tif")
+buow_ssp2_2100 <- rast("~/ADAPT/adapt_app/ADAPT_app/buow_ssp2_2100.tif")
 
-lewo_current <- rast("lewo_test_25kmesh_500kmatern.tif")
-lewo_ssp2_2100 <- rast("lewo_preds_ssp2_2100.tif")
+lewo_current <- rast("~/ADAPT/adapt_app/ADAPT_app/lewo_test_25kmesh_500kmatern.tif")
+lewo_ssp2_2100 <- rast("~/ADAPT/adapt_app/ADAPT_app/lewo_preds_ssp2_2100.tif")
 
 #need function here to read in raster and make brick - 
  # or just need to upload bricks!
@@ -60,19 +55,34 @@ ui <- fluidPage(
     titlePanel("Predictions of Occupancy Probability"),
 
     fluidRow(  
-       column(4,selectInput(inputId = "ssp", label = "SSP:",
-                choices = c("Current" = 1,
-                            "SSP2-4.5" = 2,
-                            "Difference of current and SSP2" = 3
+       column(4,
+              selectInput("time",
+                          label = "Time Period",
+                          choices = c("Current" = 1,
+                                       "2100" = 2)),
+              
+              conditionalPanel("input.time === 2",
+                        selectInput("ssp",label = "SSP",
+                                    choices = c("SSP2-4.5" = 2)),
+                        radioButtons("diff",label = "Difference of current and future",
+                                     c("Show future predictions" = 2 ,
+                                       "Show difference between current and future predictions" = 3)))
+              
+              #selectInput(inputId = "ssp", label = "SSP:",
+              #  choices = c("Current" = 1,
+               #            "SSP2-4.5" = 2,
+                 #           "Difference of current and SSP2" = 3
                                  #"Difference of current and SSP5" = 5
-                            )
-                     )
+                   #         )
+                  #   )
          )),
     fluidRow(   
-      column(12,selectInput(inputId = "species", label = "Species",
-                            choices = c("Bendire's Thrasher"= 1,
-                                        "Burrowing Owl" = 2,
-                                        "Lewis's Woodpecker" = 3)))),
+      column(4,selectInput(
+        inputId = "species", 
+        label = "Species",
+        choices = c("Bendire's Thrasher"= 1,
+                        "Burrowing Owl" = 2,
+                   "Lewis's Woodpecker" = 3)))),
          
         # Show a plot of the generated distribution
       fluidRow(
@@ -95,7 +105,9 @@ ui <- fluidPage(
                     
         selectInput(inputId = "state",
                       label = "State",
-                    choices = unique(adapt_pts$ID)),
+                    choices = unique(adapt_pts$ID),
+                    #options = list(`actions-box` = TRUE),
+                    multiple = TRUE),
         selectInput(inputId = "species_plot",
                       label = "Species",
                     choices = c("Bendire's Thrasher" = "beth",
@@ -119,28 +131,34 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   #tab 1
    
+  raster_subset <- reactive({
+    if(input$time == 1) {
+      rasters_to_plot[[as.numeric(input$species)]][[1]]  
+    } else {
+      rasters_to_plot[[as.numeric(input$species)]][[input$diff]]
+    }
+  })
+  
+  pal <- reactive({
+    colorNumeric(
+    palette = ifelse(input$diff == 3,"broc", "tokyo"),
+    values(raster_subset()),
+    na.color = "transparent")
+  })
+  
   output$ssp_plot <- renderLeaflet({
   # generate plot based on input$ssp from ui.R
 
-    leaflet() %>% 
-      addTiles() %>% 
-      addRasterImage(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$ssp)]],
-          colors = colorNumeric(
-            scico(9,
-                  alpha=.8,
-                  palette = ifelse(input$ssp == 3,"broc", "tokyo")),
-            values(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$ssp)]]), 
-            na.color = "transparent"),
-            opacity = 0.8) %>%
+    leaflet() |>  
+      addTiles() |>  
+      addRasterImage(
+        raster_subset(),
+        colors = pal(),
+        opacity = 0.8) |> 
       addLegend(
-        pal = colorNumeric(
-        scico(
-          9, 
-          alpha=.8, 
-          palette = ifelse(input$ssp== 3,"broc", "tokyo")),
-        values(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$ssp)]]), na.color = "transparent"), 
-        values = values(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$ssp)]]),
-                title = "Probability of Occupancy")
+        pal = pal(),
+        values = values(raster_subset()),
+        title = "Probability of Occupancy")
   })
   
   output$download_raster <- downloadHandler(
@@ -175,7 +193,7 @@ server <- function(input, output, session) {
     req(input$year)
     req(input$species_plot)
     adapt_pts |> 
-      filter(ID == input$state & year == input$year & species == input$species_plot) |> 
+      filter(ID == c(input$state) & year == input$year & species == input$species_plot) |> 
       arrange(obs)
     })
   
@@ -194,9 +212,11 @@ server <- function(input, output, session) {
         fillOpacity = 0.5
       ) |> 
       addLegend(
-        color = ~ifelse(obs ==1, scico(4)[1],scico(4)[3]),
-        values = c("Yes","No"), 
-        title = "Species Observed")
+        color = c(scico(4)[1],scico(4)[3]),
+        #color = ~ifelse(obs ==1, scico(4)[1],scico(4)[3]),
+        values = c(1,0), 
+        labels = c("Present","Absent"),
+        title = "Observation")
   })
   
 }
