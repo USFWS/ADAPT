@@ -185,7 +185,7 @@ server <- function(input, output, session) {
   
   pal <- reactive({
     colorNumeric(
-      scico(9, alpha = 0.8, palette = "tokyo"), #ifelse(as.numeric(input$ssp) == 3,"broc", "tokyo")),
+      scico(9, alpha = 0.8, palette = ifelse(as.numeric(input$compare) == TRUE,"broc", "tokyo")),
     values(raster_subset()),
     na.color = "transparent")
   })
