@@ -116,14 +116,15 @@ ui <- fluidPage(
              )),
     
     # Show a plot of the generated distribution
-      fluidRow(
+    fluidRow(
       column(12,
              withSpinner(
                leafletOutput(outputId = "ssp_plot"))),
         ),
       
-      fluidRow(
-        column(4, downloadButton("download_raster","Download Data"))
+    fluidRow(
+        column(4, downloadButton("download_raster","Download Raster")),
+        column(4, downloadButton("download_fig","Download High-Res Figure"))
       )
     ),
 
@@ -208,12 +209,36 @@ server <- function(input, output, session) {
     bindCache(input$compare, input$time,input$species,
               input$time_diff, input$ssp_diff, input$ssp)
   
+  raster_plot <- reactive({
+    states <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE),"SpatialPolygons") %>%
+         filter(ID %in% c(
+           "new mexico","arizona", "california","nevada","utah",
+           "oklahoma","texas","colorado"
+         ))
+    ggplot() + geom_spatraster(data = raster_subset()) +
+      scale_fill_continuous(na.value = "transparent") +
+      theme_bw() + 
+      geom_sf(data=states,fill=NA) + 
+      guides(fill=guide_legend(title = "Prob of \nOccupancy"))
+  })
+  
   output$download_raster <- downloadHandler(
     filename = function() {
-      paste0("output_preds_",input$ssp,"2100.tif")
+      paste0("output_",names(raster_subset()),".tif")
     },
     content = function(file) {
-      writeRaster(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$ssp)]], file)
+      #writeRaster(rasters_to_plot[[as.numeric(input$species)]][[as.numeric(input$time)]][[as.numeric(input$ssp)]], file)
+      writeRaster(raster_subset(), file)
+    }
+  )
+  
+  output$download_fig <- downloadHandler(
+    filename = function() {
+      paste0("figure_",names(raster_subset()),".png")
+    },
+    content = function(file){
+      ggsave(file, plot = raster_plot(), device = "png",
+             width = 9, height = 9, units = "in")
     }
   )
   
@@ -251,12 +276,12 @@ server <- function(input, output, session) {
       addCircleMarkers(
         data = only_obs(),
         radius = ~(log(effort)+4),
-        color = ~ifelse(obs == 1,scico(4)[1],scico(4)[3]),
+        color = ~ifelse(obs == 1,scico(10,palette = "tokyo")[1],scico(10,palette = "tokyo")[8]),
         fillOpacity = 0.5,
         popup = ~paste("Survey effort =",effort)
       ) |> 
       addLegend(
-        color = c(scico(4)[1],scico(4)[3]),
+        color = c(scico(10,palette = "tokyo")[1],scico(10,palette = "tokyo")[8]),
         #color = ~ifelse(obs ==1, scico(4)[1],scico(4)[3]),
         values = c(1,0), 
         labels = c("Present","Absent"),
