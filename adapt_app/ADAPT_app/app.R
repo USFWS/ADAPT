@@ -17,6 +17,7 @@ library(tidyterra)
 #library(lwgeom)
 library(shinyWidgets)
 library(shinycssloaders)
+library(cachem)
 
 adapt_pts <- st_read("dat_short.shp")
 
@@ -68,6 +69,8 @@ rasters_to_plot <- list(beth = beth_brick,
 source("R/species_input.R")
 source("R/ssp_input.R")
 source("R/time_input.R")
+
+shinyOptions(cache= cachem::cache_disk("./"))
 
 ui <- fluidPage(
   tabsetPanel(
@@ -201,7 +204,9 @@ server <- function(input, output, session) {
         pal = pal(),
         values = values(raster_subset()),
         title = "Probability of Occupancy")
-  })
+  }) |> 
+    bindCache(input$compare, input$time,input$species,
+              input$time_diff, input$ssp_diff, input$ssp)
   
   output$download_raster <- downloadHandler(
     filename = function() {
@@ -247,7 +252,8 @@ server <- function(input, output, session) {
         data = only_obs(),
         radius = ~(log(effort)+4),
         color = ~ifelse(obs == 1,scico(4)[1],scico(4)[3]),
-        fillOpacity = 0.5
+        fillOpacity = 0.5,
+        popup = ~paste("Survey effort =",effort)
       ) |> 
       addLegend(
         color = c(scico(4)[1],scico(4)[3]),
