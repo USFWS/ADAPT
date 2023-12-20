@@ -195,7 +195,7 @@ server <- function(input, output, session) {
   
   output$ssp_plot <- renderLeaflet({
     leaflet() |>  
-      addTiles() |>  
+      addProviderTiles(providers$Esri.WorldImagery) |>  
       addRasterImage(
         raster_subset(),
         colors = pal(),
@@ -247,7 +247,7 @@ server <- function(input, output, session) {
   
   output$map <- renderLeaflet({
    leaflet() |> 
-      addTiles() |> 
+      addProviderTiles(providers$Esri.WorldImagery) |> 
       addCircleMarkers(
         data = only_obs(),
         radius = ~(log(effort)+4),
