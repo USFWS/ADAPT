@@ -8,7 +8,7 @@ library(tidyr)
 #library(flexdashboard)
 library(shinydashboard)
 library(leaflet)
-#library(maps)
+library(maps)
 library(sf)
 #library(stars)
 library(scico)
@@ -74,6 +74,13 @@ shinyOptions(cache= cachem::cache_disk("./"))
 
 ui <- fluidPage(
   tabsetPanel(
+    tabPanel("About",
+      fluidRow(
+        column(12,
+               includeMarkdown("adapt_documentation.md"))
+      )
+             ),
+    
     # Application title
     tabPanel("Predictions",
     titlePanel("Predictions of Occupancy Probability"),
