@@ -19,52 +19,63 @@ library(shinyWidgets)
 library(shinycssloaders)
 library(cachem)
 
-adapt_pts <- st_read("dat_short.shp")
+adapt_pts <- st_read("dat_short_new.shp")
 
+source("R/raster_prep.R")
 #read in raster files
-beth_ssp2_2100 <- rast("beth_ssp2_2100.tif")
-beth_ssp2_2060 <- rast('beth_ssp2_2060.tif')
-beth_ssp5_2100 <- rast("beth_ssp5_2100.tif")
-beth_ssp5_2060 <- rast("beth_ssp5_2060.tif")
-beth_current <- rast("beth_current.tif")
+# beth_ssp2_2100 <- rast("beth_ssp2_2100.tif")
+# beth_ssp2_2060 <- rast('beth_ssp2_2060.tif')
+# beth_ssp5_2100 <- rast("beth_ssp5_2100.tif")
+# beth_ssp5_2060 <- rast("beth_ssp5_2060.tif")
+# beth_current <- rast("beth_current.tif")
+# 
+# buow_current <- rast("buow_current.tif")
+# buow_ssp2_2060 <- rast("buow_ssp2_2060.tif")
+# buow_ssp2_2100 <- rast("buow_ssp2_2100.tif")
+# buow_ssp5_2060 <- rast("buow_ssp5_2060.tif")
+# buow_ssp5_2100 <- rast("buow_ssp5_2100.tif")
+# 
+# lewo_current <- rast("lewo_current.tif")
+# lewo_ssp2_2060 <- rast("lewo_ssp2_2060.tif")
+# lewo_ssp2_2100 <- rast("lewo_ssp2_2100.tif")
+# lewo_ssp5_2060 <- rast("lewo_ssp5_2060.tif")
+# lewo_ssp5_2100 <- rast("lewo_ssp5_2100.tif")
+# 
+# #need function here to read in raster and make brick - 
+#  # or just need to upload bricks!
+# 
+# beth_brick <- list(current = beth_current, 
+#                 mid = c(beth_ssp2_2060,
+#                         beth_ssp5_2060),
+#                 end = c(beth_ssp2_2100,
+#                         beth_ssp5_2100)
+# )
+# 
+# buow_brick <- list(current = buow_current, 
+#                    mid = c(buow_ssp2_2060,
+#                            buow_ssp5_2060),
+#                    end = c(buow_ssp2_2100,
+#                            buow_ssp5_2100))
+# 
+# lewo_brick <- list(current = lewo_current, 
+#                    mid = c(lewo_ssp2_2060,
+#                            lewo_ssp5_2060),
+#                    end = c(lewo_ssp2_2100,
+#                            lewo_ssp5_2100))
 
-buow_current <- rast("buow_current.tif")
-buow_ssp2_2060 <- rast("buow_ssp2_2060.tif")
-buow_ssp2_2100 <- rast("buow_ssp2_2100.tif")
-buow_ssp5_2060 <- rast("buow_ssp5_2060.tif")
-buow_ssp5_2100 <- rast("buow_ssp5_2100.tif")
-
-lewo_current <- rast("lewo_current.tif")
-lewo_ssp2_2060 <- rast("lewo_ssp2_2060.tif")
-lewo_ssp2_2100 <- rast("lewo_ssp2_2100.tif")
-lewo_ssp5_2060 <- rast("lewo_ssp5_2060.tif")
-lewo_ssp5_2100 <- rast("lewo_ssp5_2100.tif")
-
-#need function here to read in raster and make brick - 
- # or just need to upload bricks!
-
-beth_brick <- list(current = beth_current, 
-                mid = c(beth_ssp2_2060,
-                        beth_ssp5_2060),
-                end = c(beth_ssp2_2100,
-                        beth_ssp5_2100)
-)
-
-buow_brick <- list(current = buow_current, 
-                   mid = c(buow_ssp2_2060,
-                           buow_ssp5_2060),
-                   end = c(buow_ssp2_2100,
-                           buow_ssp5_2100))
-
-lewo_brick <- list(current = lewo_current, 
-                   mid = c(lewo_ssp2_2060,
-                           lewo_ssp5_2060),
-                   end = c(lewo_ssp2_2100,
-                           lewo_ssp5_2100))
+beth_brick <- raster_prep("beth")
+buow_brick <- raster_prep("buow")
+lewo_brick <- raster_prep("lewo")
+feha_brick <- raster_prep("feha")
+osfl_brick <- raster_prep("osfl")
+losh_brick <- raster_prep("losh")
 
 rasters_to_plot <- list(beth = beth_brick,
                         buow = buow_brick,
-                        lewo = lewo_brick)
+                        lewo = lewo_brick,
+                        feha = feha_brick,
+                        osfl = osfl_brick,
+                        losh = losh_brick)
 
 source("R/species_input.R")
 source("R/ssp_input.R")
@@ -74,10 +85,18 @@ shinyOptions(cache= cachem::cache_disk("./"))
 
 ui <- fluidPage(
   tabsetPanel(
+    
     tabPanel("About",
       fluidRow(
         column(12,
-               includeMarkdown("adapt_documentation.md"))
+               includeMarkdown("adapt_documentation.md")),
+        tags$div(
+          "For questions about ADAPT, contact",
+          tags$a(href="mailto:beth_ross@fws.gov",
+          "Beth Ross"),
+          tags$a(href="mailto:matthew_boggie@fws.gov",
+          "or Matt Boggie")
+        )
       )
              ),
     
@@ -212,10 +231,10 @@ server <- function(input, output, session) {
         pal = pal(),
         values = values(raster_subset()),
         title = "Probability of Occupancy")
-  }) |> 
-    bindCache(input$compare, input$time,input$species,
-              input$time_diff, input$ssp_diff, input$ssp)
-  
+  }) #|> 
+    # bindCache(input$compare, input$time,input$species,
+    #           input$time_diff, input$ssp_diff, input$ssp)
+    # 
   raster_plot <- reactive({
     states <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE),"SpatialPolygons") %>%
          filter(ID %in% c(
@@ -268,8 +287,8 @@ server <- function(input, output, session) {
     req(input$year)
     req(input$species_plot)
     adapt_pts |> 
-      filter(ID == c(input$state) & year == input$year & species == unique(species)[as.numeric(input$species_plot)]) |> 
-      arrange(obs)
+       filter(ID %in% input$state & year %in% input$year & species == unique(species)[as.numeric(input$species_plot)]) |> 
+       arrange(obs)
     })
   
   #output$state_summary <- renderTable(
