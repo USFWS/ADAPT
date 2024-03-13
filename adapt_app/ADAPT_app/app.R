@@ -20,48 +20,11 @@ library(shinycssloaders)
 library(cachem)
 
 adapt_pts <- st_read("dat_short_new.shp")
+buow_covs <- read.csv("buow_covs.csv")
+colnames(buow_covs)[1] = "Covariate"
 
 source("R/raster_prep.R")
 #read in raster files
-# beth_ssp2_2100 <- rast("beth_ssp2_2100.tif")
-# beth_ssp2_2060 <- rast('beth_ssp2_2060.tif')
-# beth_ssp5_2100 <- rast("beth_ssp5_2100.tif")
-# beth_ssp5_2060 <- rast("beth_ssp5_2060.tif")
-# beth_current <- rast("beth_current.tif")
-# 
-# buow_current <- rast("buow_current.tif")
-# buow_ssp2_2060 <- rast("buow_ssp2_2060.tif")
-# buow_ssp2_2100 <- rast("buow_ssp2_2100.tif")
-# buow_ssp5_2060 <- rast("buow_ssp5_2060.tif")
-# buow_ssp5_2100 <- rast("buow_ssp5_2100.tif")
-# 
-# lewo_current <- rast("lewo_current.tif")
-# lewo_ssp2_2060 <- rast("lewo_ssp2_2060.tif")
-# lewo_ssp2_2100 <- rast("lewo_ssp2_2100.tif")
-# lewo_ssp5_2060 <- rast("lewo_ssp5_2060.tif")
-# lewo_ssp5_2100 <- rast("lewo_ssp5_2100.tif")
-# 
-# #need function here to read in raster and make brick - 
-#  # or just need to upload bricks!
-# 
-# beth_brick <- list(current = beth_current, 
-#                 mid = c(beth_ssp2_2060,
-#                         beth_ssp5_2060),
-#                 end = c(beth_ssp2_2100,
-#                         beth_ssp5_2100)
-# )
-# 
-# buow_brick <- list(current = buow_current, 
-#                    mid = c(buow_ssp2_2060,
-#                            buow_ssp5_2060),
-#                    end = c(buow_ssp2_2100,
-#                            buow_ssp5_2100))
-# 
-# lewo_brick <- list(current = lewo_current, 
-#                    mid = c(lewo_ssp2_2060,
-#                            lewo_ssp5_2060),
-#                    end = c(lewo_ssp2_2100,
-#                            lewo_ssp5_2100))
 
 beth_brick <- raster_prep("beth")
 buow_brick <- raster_prep("buow")
@@ -69,13 +32,19 @@ lewo_brick <- raster_prep("lewo")
 feha_brick <- raster_prep("feha")
 osfl_brick <- raster_prep("osfl")
 losh_brick <- raster_prep("losh")
+mopl_brick <- raster_prep("mopl")
+cclo_brick <- raster_prep("cclo")
+btpi_brick <- raster_prep("btpi")
 
 rasters_to_plot <- list(beth = beth_brick,
                         buow = buow_brick,
                         lewo = lewo_brick,
                         feha = feha_brick,
                         osfl = osfl_brick,
-                        losh = losh_brick)
+                        losh = losh_brick,
+                        mopl = mopl_brick,
+                        cclo = cclo_brick,
+                        btpi = btpi_brick)
 
 source("R/species_input.R")
 source("R/ssp_input.R")
@@ -181,13 +150,58 @@ ui <- fluidPage(
              
     fluidRow(
          column(12, leafletOutput("map"))
-           ),
+           )
     #fluidRow(
     #     column(4, tableOutput(outputId = "year_summary")),
     #     column(4, tableOutput(outputId = "state_summary")),
     #       )
              
            ),
+
+#### Tab 3 - Figs and Tables ####
+#   
+# tabPanel("Figures and Tables",
+#          titlePanel("Figures and Tables from Model Output"),         
+#          
+#          fluidRow(
+#            column(4,
+#                   selectInput(
+#                     inputId = "species_fig", 
+#                     label = "Species",
+#                     choices = c("Bendire's Thrasher" = "beth",
+#                                 "Burrowing Owl" = "buow",
+#                                 "Lewis's Woodpecker" = "lewo",
+#                                 "Ferruginous Hawk" = "feha",
+#                                 "Olive-sided Flycatcher" = "osfl",
+#                                 "Loggerhead Shrike" = "losh")#,
+#                     #"Mountain Plover" = "mopl",
+#                     #"Chestnut-collared Longspur" = "cclo",
+#                     #"Band-tailed Pigeon" = "btpi")
+#                   )
+#            )
+#          ),
+#          fluidRow(
+#            #column(4),
+#            tags$div(
+#              "Figure showing the spatially-varying effect of relative humidity on 
+#              occupancy across the study area."
+#            )
+#          ),
+#          
+#          fluidRow(
+#            column(4, imageOutput("result_fig"))),
+#          
+#          tags$div(
+#            "Table of the effect of elevation, year, and survey effort on 
+#            occupancy across the study area with the mean, standard 
+#            deviation, and 2.5%, 50%, and 97.5% quantiles."
+#          ),   
+#          
+#          fluidRow(
+#            column(8, tableOutput("cov_vals"))
+#          )
+#   ),
+
   tags$head(tags$style(".leaflet-top {z-index:999!important;}"))
   )
 )
@@ -313,7 +327,27 @@ server <- function(input, output, session) {
         labels = c("Present","Absent"),
         title = "Observation")
   })
-  
+    
+  #### Server Tab 3 ####
+    # output$result_fig <- renderImage({
+    # 
+    #   # load fig 1 file
+    #   width <- session$clientData$output_result_fig_width
+    #   height <- session$clientData$output_result_fig_height
+    #   
+    #   filename <- paste0("./images/",input$species_fig,"_rh.png")
+    #  
+    #   list(src = filename,
+    #        width = 400,
+    #        height = 400,
+    #        alt = "test")
+    # 
+    # }, deleteFile = FALSE)
+    # 
+    # output$cov_vals <- renderTable(
+    #   buow_covs #see renderDataTable for option to change row colors based on 95% CIs
+    # )
+    
 }
 
 shinyApp(ui = ui, server = server)
