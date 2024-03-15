@@ -20,8 +20,9 @@ library(shinycssloaders)
 library(cachem)
 
 adapt_pts <- st_read("dat_short_new.shp")
-buow_covs <- read.csv("buow_covs.csv")
-colnames(buow_covs)[1] = "Covariate"
+cov_all_sp <- read.csv("cov_all_sp.csv")[,-1]
+colnames(cov_all_sp)[1] = "Covariate"
+lulc_all_sp <- read.csv("lulc_all_sp.csv")[,-c(1:2)]
 
 source("R/raster_prep.R")
 #read in raster files
@@ -159,48 +160,58 @@ ui <- fluidPage(
            ),
 
 #### Tab 3 - Figs and Tables ####
-#   
-# tabPanel("Figures and Tables",
-#          titlePanel("Figures and Tables from Model Output"),         
-#          
-#          fluidRow(
-#            column(4,
-#                   selectInput(
-#                     inputId = "species_fig", 
-#                     label = "Species",
-#                     choices = c("Bendire's Thrasher" = "beth",
-#                                 "Burrowing Owl" = "buow",
-#                                 "Lewis's Woodpecker" = "lewo",
-#                                 "Ferruginous Hawk" = "feha",
-#                                 "Olive-sided Flycatcher" = "osfl",
-#                                 "Loggerhead Shrike" = "losh")#,
-#                     #"Mountain Plover" = "mopl",
-#                     #"Chestnut-collared Longspur" = "cclo",
-#                     #"Band-tailed Pigeon" = "btpi")
-#                   )
-#            )
-#          ),
-#          fluidRow(
-#            #column(4),
-#            tags$div(
-#              "Figure showing the spatially-varying effect of relative humidity on 
-#              occupancy across the study area."
-#            )
-#          ),
-#          
-#          fluidRow(
-#            column(4, imageOutput("result_fig"))),
-#          
-#          tags$div(
-#            "Table of the effect of elevation, year, and survey effort on 
-#            occupancy across the study area with the mean, standard 
-#            deviation, and 2.5%, 50%, and 97.5% quantiles."
-#          ),   
-#          
-#          fluidRow(
-#            column(8, tableOutput("cov_vals"))
-#          )
-#   ),
+
+tabPanel("Figures and Tables",
+         titlePanel("Figures and Tables from Model Output"),
+
+         fluidRow(
+           column(4,
+                  selectInput(
+                    inputId = "species_fig",
+                    label = "Species",
+                    choices = c("Bendire's Thrasher" = "beth",
+                                "Burrowing Owl" = "buow",
+                                "Lewis's Woodpecker" = "lewo",
+                                "Ferruginous Hawk" = "feha",
+                                "Olive-sided Flycatcher" = "osfl",
+                                "Loggerhead Shrike" = "losh",
+                                "Mountain Plover" = "mopl",
+                                "Chestnut-collared Longspur" = "cclo",
+                                "Band-tailed Pigeon" = "btpi")
+                  )
+           )
+         ),
+         fluidRow(
+           #column(4),
+           tags$div(
+             "Figure showing the spatially-varying effect of relative humidity on
+             occupancy across the study area."
+           )
+         ),
+
+         fluidRow(
+           column(4, imageOutput("result_fig"))),
+
+         tags$div(
+           "Table of the effect of elevation, year, and survey effort on
+           occupancy across the study area with the mean, standard
+           deviation, and 2.5%, 50%, and 97.5% quantiles."
+         ),
+
+         fluidRow(
+           column(8, tableOutput("cov_vals"))
+         ),
+         
+         tags$div(
+           "Table of the effect of land cover type on
+           occupancy across the study area with the mean, standard
+           deviation, and 2.5%, 50%, and 97.5% quantiles."
+         ),
+         
+         fluidRow(
+           column(8, tableOutput("lulc_vals"))
+         )
+  ),
 
   tags$head(tags$style(".leaflet-top {z-index:999!important;}"))
   )
@@ -329,25 +340,36 @@ server <- function(input, output, session) {
   })
     
   #### Server Tab 3 ####
-    # output$result_fig <- renderImage({
-    # 
-    #   # load fig 1 file
-    #   width <- session$clientData$output_result_fig_width
-    #   height <- session$clientData$output_result_fig_height
-    #   
-    #   filename <- paste0("./images/",input$species_fig,"_rh.png")
-    #  
-    #   list(src = filename,
-    #        width = 400,
-    #        height = 400,
-    #        alt = "test")
-    # 
-    # }, deleteFile = FALSE)
-    # 
-    # output$cov_vals <- renderTable(
-    #   buow_covs #see renderDataTable for option to change row colors based on 95% CIs
-    # )
+    output$result_fig <- renderImage({
+
+      # load fig 1 file
+      width <- session$clientData$output_result_fig_width
+      height <- session$clientData$output_result_fig_height
+
+      filename <- paste0("./images/",input$species_fig,"_rh.png")
+
+      list(src = filename,
+           width = 400,
+           height = 400,
+           alt = "Effect of relative humidity")
+
+    }, deleteFile = FALSE)
+
+  selected_cov <- reactive(cov_all_sp |> 
+                             filter(species == input$species_fig) |> 
+                             select(!species))
+  
+    output$cov_vals <- renderTable(
+      selected_cov()  #see renderDataTable for option to change row colors based on 95% CIs
+    )
     
+    selected_lulc <- reactive(lulc_all_sp |> 
+                                filter(species == input$species_fig) |> 
+                                select(!species))
+    
+    output$lulc_vals <- renderTable(
+      selected_lulc()
+    )
 }
 
 shinyApp(ui = ui, server = server)
